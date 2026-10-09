@@ -1,0 +1,431 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Better Disk Manager Windows Product and Technical Specification</title><style>
+:root{color-scheme:light;--ink:#222b26;--muted:#637068;--line:#d9dfda;--accent:#175b34}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f2f4f0;color:var(--ink);font:16px/1.65 "Segoe UI",Arial,sans-serif}
+.shell{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1600px;margin:auto}
+nav{position:sticky;top:0;height:100vh;overflow:auto;padding:30px 22px;border-right:1px solid var(--line)}
+nav strong{display:block;color:#000;margin-bottom:14px;font-size:15px}nav a{display:block;text-decoration:none;color:#47594b;padding:7px 0;font-size:13px;line-height:1.5}nav a:hover,nav a:focus{color:var(--accent);text-decoration:underline}
+main{background:#fff;padding:58px 64px 85px;min-width:0}article{max-width:1000px;margin:auto}h1,h2,h3{color:#000;line-height:1.25}h1{font-size:36px;letter-spacing:-.6px;margin:0 0 18px}h2{font-size:25px;margin:44px 0 16px;scroll-margin-top:24px}h3{font-size:19px;margin:26px 0 12px}p{margin:0 0 16px}h1+p{font-size:14px;color:var(--muted);margin-bottom:30px}a{color:#175b34}li{margin:7px 0}table{width:100%;border-collapse:collapse;margin:24px 0;font-size:14px;line-height:1.5}th,td{border:1px solid var(--line);padding:12px 14px;text-align:left;vertical-align:middle}th{background:#e4ebe7;color:#000}tr:nth-child(even) td{background:#f7f9f6}img{max-width:100%;height:auto;border:1px solid var(--line);margin:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f7f3;border:1px solid var(--line);padding:20px;font-size:13px;line-height:1.55}code{font-family:Consolas,monospace}.toplinks{margin-bottom:24px;font-size:13px}.tablewrap{overflow:auto}
+@media(max-width:1000px){.shell{display:block}nav{position:static;height:auto;border:0;border-bottom:1px solid var(--line);padding:20px}nav a{display:inline-block;margin-right:14px}main{padding:30px 22px}h1{font-size:30px}}
+@media print{@page{size:letter portrait;margin:.7in}body{background:white;font-size:10.5pt;line-height:1.5}.shell{display:block}nav,.toplinks{display:none}main{padding:0}h1{font-size:25pt}h2{font-size:17pt;break-after:avoid}h3{font-size:13pt;break-after:avoid}tr,img,pre{break-inside:avoid}table{font-size:9pt}thead{display:table-header-group}a{color:inherit;text-decoration:none}img{max-height:7.5in;object-fit:contain}}
+</style></head><body><div class="shell"><nav aria-label="Document contents"><strong>Better Disk Manager Windows Product and Technical Specification</strong><a href="#1-platform-and-scope">1 Platform and scope</a><a href="#2-functional-requirements">2 Functional requirements</a><a href="#3-proposed-architecture">3 Proposed architecture</a><a href="#4-data-model-and-command-contract">4 Data model and command contract</a><a href="#5-lifecycle-and-consistency">5 Lifecycle and consistency</a><a href="#6-performance-and-accessibility-targets">6 Performance and accessibility targets</a><a href="#7-acceptance-tests">7 Acceptance tests</a><a href="#8-delivery-stages-and-release-gates">8 Delivery stages and release gates</a><a href="#9-deferred-decisions">9 Deferred decisions</a><a href="#10-source-references">10 Source references</a></nav><main><article><div class="toplinks"><a href="better-disk-manager-design.html">Open companion document</a> · <a href="better-disk-manager-specification.md">Editable Markdown source</a></div><h1 id="better-disk-manager-windows-product-and-technical-specification">Better Disk Manager Windows Product and Technical Specification</h1>
+<p>Version 0.1 · 9 October 2026 · Proposed implementation baseline</p>
+<p>Build a Windows desktop disk manager that scans local storage, presents a green treemap and searchable list, compares locally saved scans, and supports reviewed recycling of eligible personal files. This specification is the implementation contract for version 1. The accompanying design document defines layout and user journeys.</p>
+<p>MUST indicates a release requirement. SHOULD indicates a preferred implementation that may change with documented evidence. Proposed performance figures are engineering targets, not measured results. The selected stack is a recommendation to validate in an initial prototype.</p>
+<h2 id="1-platform-and-scope">1 Platform and scope</h2>
+<p>The initial supported target is Windows 11 x64, running as the current user. Test on the latest supported Windows 11 releases available when packaging. Windows 10, ARM64, macOS, Linux, network shares, and MTP devices are outside the first support matrix. Do not reject or change operating-system settings to improve scan speed.</p>
+<p>Support local NTFS drives as the primary filesystem and local exFAT removable drives for scanning. Enable recycling only on a target where the tested Windows adapter can enforce recycle-only behavior. Removable-drive uncertainty must disable cleanup without disabling read-only analysis.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Version 1</th>
+<th>Later work</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local drive and folder scan</td>
+<td>Required</td>
+<td>Faster optional NTFS scanner</td>
+</tr>
+<tr>
+<td>Map, list, search, filters and details</td>
+<td>Required</td>
+<td>Additional map styles</td>
+</tr>
+<tr>
+<td>Last modified and qualified last accessed coloring</td>
+<td>Required</td>
+<td>Optional observed activity tracking</td>
+</tr>
+<tr>
+<td>App installation root grouping</td>
+<td>Required with partial coverage labels</td>
+<td>Validated cache and user-data attribution</td>
+</tr>
+<tr>
+<td>Local saved scans and comparisons</td>
+<td>Required</td>
+<td>Scheduled monitoring</td>
+</tr>
+<tr>
+<td>Personal file recycling and exclusions</td>
+<td>Required</td>
+<td>Reviewed folder cleanup after complete enumeration</td>
+</tr>
+<tr>
+<td>Bin inspection</td>
+<td>Open Windows Recycle Bin</td>
+<td>In-app bin management</td>
+</tr>
+<tr>
+<td>Duplicate-content detection</td>
+<td>Excluded</td>
+<td>Explicit opt-in hashing</td>
+</tr>
+<tr>
+<td>Downloads transfer engine</td>
+<td>Excluded</td>
+<td>Companion product</td>
+</tr>
+<tr>
+<td>Cloud accounts, AI services and billing</td>
+<td>Excluded</td>
+<td>Separately designed services</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="2-functional-requirements">2 Functional requirements</h2>
+<h3 id="fr01-choose-and-scan-a-location">FR01 Choose and scan a location</h3>
+<p>MUST enumerate eligible local volumes and allow a Windows folder picker. Resolve volume identity and scan root before starting. A single scan runs at a time; changing the scan root requires cancelling or completing the current scan. Browsing saved scans remains available during scanning.</p>
+<p>The scanner MUST enumerate metadata without reading file contents. It MUST report discovered file and directory counts, elapsed time, current location, warnings, and measured bytes. Total item count is unknown during discovery, so progress MUST remain indeterminate. Deliver batched progress at no more than five updates per second and keep enumeration off the UI thread.</p>
+<p>Cancellation MUST stop scheduling work, drain or cancel pending tasks, and retain a clearly labeled partial result. Do not call cancelled scans complete. Permission failures MUST be recorded per path and MUST NOT abort unrelated readable subtrees. No automatic elevation or privileged background service is included.</p>
+<h3 id="fr02-account-for-storage-honestly">FR02 Account for storage honestly</h3>
+<p>Store logical file length separately from measured allocation. Query appropriate Windows allocation metadata, including compressed or sparse allocation where supported [S3]. If allocation cannot be measured, store null with a reason; do not silently substitute logical bytes in Size on disk mode.</p>
+<p>Identify hard links by volume identity and file ID. Count allocation once per unique identity in the root total. For additive folder maps, assign counted bytes to the lexicographically first relative path using a stable Windows ordinal comparison and mark other entries as aliases. Retain full logical length and measured allocation in entry details, plus separately stored counted allocation. If identity is unavailable, disclose that deduplication is unverified. The representation does not establish how many bytes deleting a link will reclaim [S4].</p>
+<p>Query drive capacity, free bytes, and bytes available to the current user independently [S6]. Do not force scanned totals to match used capacity. Display any positive gap as Unaccounted space, with possible filesystem metadata, restricted locations, or other allocation causes. If measured totals exceed reported used space due to changes during scanning or shared-storage uncertainty, display a discrepancy rather than a negative gap.</p>
+<p>Size on disk is measured allocation, not a guarantee of physically unique blocks or reclaimable space. Version 1 does not measure every filesystem metadata structure, alternate data stream, or storage-provider sharing mechanism. Coverage notices MUST explain relevant uncertainty.</p>
+<h3 id="fr03-handle-special-paths">FR03 Handle special paths</h3>
+<p>Do not traverse directory junctions, symbolic links, or mounted-volume reparse points in version 1. Record them as link entries; exclude target contents from totals and disable cleanup of link entries. Detect cloud-provider placeholders separately, using Windows attributes and provider-aware metadata where required [S5]. Metadata inspection MUST NOT deliberately hydrate or download online-only content. Allocation remains unknown when it cannot be established without hydration.</p>
+<p>Support Unicode, deep paths, long paths permitted by Windows, case-sensitive directories, concurrent file changes, and drive disconnection. Preserve path spelling. Do not merge distinct paths solely by converting them to lowercase. A path whose metadata cannot be decoded for display still requires an internal Windows-native representation; a lossy display string cannot become the action target.</p>
+<h3 id="fr04-show-a-synchronized-map-and-list">FR04 Show a synchronized map and list</h3>
+<p>MUST render immediate children at the current navigation level using a deterministic squarified treemap. Folder values aggregate matching descendant files. Map and list MUST share filters, metric, selection, and scan ID. Cap displayed rectangles at 1,500, aggregating small entries into navigable groups. Virtualize list rows and query pages of at most 200 items.</p>
+<p>Percentages MUST use the known bytes of the current filtered result. Show unknown-allocation count beside totals. Zero-byte entries are visible in the list. In logical mode, hard-link paths count as separate named file lengths and the interface MUST disclose that the metric is File size, not unique storage.</p>
+<h3 id="fr05-search-and-filter">FR05 Search and filter</h3>
+<p>MUST support case-insensitive name/path search for user convenience, without changing path identity. Search is literal text, not shell syntax or regular expressions. Minimum size uses the currently selected size metric on individual file entries. Unknown allocated size fails a positive allocated-size threshold but remains available through an Unknown size filter. Type/category and date filters intersect with search and size.</p>
+<p>Use bytes internally. Display decimal B, KB, MB, GB, and TB, where 1 GB is 1,000,000,000 bytes. Allow explicit GiB input, where 1 GiB is 1,073,741,824 bytes. Show exact bytes in details. Validate negative, invalid, and overflowing inputs; do not truncate silently. Folder aggregates MUST be recomputed from the filtered files.</p>
+<h3 id="fr06-color-by-a-defined-date-metric">FR06 Color by a defined date metric</h3>
+<p>Default to modification age. Access age is optional within the interface and MUST show its limits: Windows timestamps may be disabled, delayed, or reflect background access [S1]. Never infer an access count from a timestamp. Reliability values are Known, Unverified, or Unavailable. Unverified access dates render as Unknown unless the user explicitly chooses to include them with a persistent notice. Checking reliability MUST NOT alter the filesystem's access-time policy.</p>
+<p>Compute age from scan start in UTC, with boundaries of 7, 30, 90, and 365 elapsed 24-hour days. Negative age, missing dates, and invalid dates are Unknown. Save the reference time in the snapshot. For aggregate blocks, choose the bucket containing the greatest counted bytes; break ties toward the most recent known bucket. Unknown participates as a bucket and wins when strictly largest; ties with Unknown choose Unknown conservatively. Details MUST expose the distribution and metric provenance.</p>
+<h3 id="fr07-identify-categories-and-apps">FR07 Identify categories and apps</h3>
+<p>File type classification uses a versioned extension mapping. Downloads uses Windows Known Folder location membership. Categories are alternative filters and can overlap; category totals MUST NOT be added together as a drive total. Directory names alone MUST NOT establish app ownership.</p>
+<p>Apps grouping SHOULD use installed-app metadata and explicit installation roots obtained through Windows APIs or documented registry locations. Ignore advertised install sizes as measurements. Only uniquely attributed scanned installation paths count toward a group. Shared and ambiguous locations remain unattributed. Missing roots and inaccessible content show Partial coverage. No claim to complete app storage, and no deletion of an app group, is allowed.</p>
+<h3 id="fr08-save-and-compare-scans">FR08 Save and compare scans</h3>
+<p>Saved scans MUST persist schema version, root, volume identity, configuration, exclusion set, size-accounting version, start/end time, warnings, and completeness. Autosave completed scans locally; cancelled scans require explicit Save partial scan. Default retention is 10 snapshots per root, with user-controlled deletion and a global 1 GB soft budget. If an additional save exceeds the budget, stop autosaving and offer review of history; do not silently erase snapshots.</p>
+<p>Comparison MUST require matching volume/root and compatible accounting and exclusion settings. If identity, scope, or policy differs, block quantitative comparison with a reason. Complete comparable scans support additions, removals, confirmed renames, logical-size changes, and counted-allocation changes. Match stable identities where trustworthy and distinguish reused IDs using available creation metadata; otherwise use exact relative path as the fallback. Ambiguous matches are marked uncertain rather than called renames.</p>
+<p>Incomplete scans can be compared only within subtrees confirmed fully covered by both scans. Disappearance inside an omitted subtree MUST NOT be reported as deletion. Comparison lists retain signed byte changes; a growth map uses positive deltas only, with a separate shrinkage list. Snapshot differences are observations between scans, not a log of every filesystem event.</p>
+<h3 id="fr09-pin-and-exclude-locations">FR09 Pin and exclude locations</h3>
+<p>Pinning prevents cleanup of an item and its descendants; it does not hide storage from scans. Scan exclusions omit subtrees from measurement and are shown in coverage. Store these as different settings. If a pinned item is renamed and its stable identity is recognized, keep its protection; otherwise retain the path rule and explain its scope.</p>
+<p>The built-in protected cleanup set includes volume roots, the Windows directory, installed application directories, ProgramData, AppData, recovery/system locations, Recycle Bin internals, and the application's own storage. Resolve platform locations instead of assuming C drive paths. Protection covers recognized aliases and cannot be overridden in version 1.</p>
+<h3 id="fr10-review-and-recycle-personal-files">FR10 Review and recycle personal files</h3>
+<p>Version 1 cleanup MUST operate on explicitly selected regular files owned by the current user within their Known Folder personal locations, or within an explicitly approved personal folder on a supported local drive. The backend MUST enforce this scope. Files in protected, unverified, or reparse-backed paths are ineligible. Recursive folder cleanup is deferred until full unfiltered enumeration and review are implemented.</p>
+<p>Create a review plan from entry IDs, not arbitrary frontend paths. Display full paths, logical size, measured size, and eligibility reasons. Immediately before execution, revalidate volume, file identity, resolved path and ancestors, ownership, protection, metadata, and pin state. Changed or replaced targets MUST be skipped and require a new review. Reject path traversal and any target outside the approved scope.</p>
+<p>Use Windows Shell IFileOperation with recycle-only behavior and per-item completion callbacks [S2]. Never fall back to permanent deletion. If recycling cannot be enforced, fail that item. Do not suppress a Windows warning that reveals permanent removal. Verification of large-file, unsupported-volume, and bin-capacity behavior is a release gate.</p>
+<p>Operations are cancellable between submitted items; cancellation cannot promise reversal of an operation already accepted by Windows. Retain per-item succeeded, failed, skipped, and cancelled results. Record intended actions before invoking the Shell; after a crash, reconcile uncertain results rather than retrying them blindly. Path validation reduces races, but the Shell's path-based action is not an atomic identity-bound delete; restrict cleanup accordingly and document residual concurrent-change risk.</p>
+<p>Recycling usually does not immediately free drive space. MUST report Bytes moved to Recycle Bin separately from a freshly queried available-space change. Other processes can affect free space, so that change MUST NOT be presented as exact reclaimed bytes. Recovery opens Windows Recycle Bin; in-app restoration and emptying the bin are excluded.</p>
+<h3 id="fr11-settings-and-local-privacy">FR11 Settings and local privacy</h3>
+<p>MUST offer theme, display metric, exclusions, pins, snapshot retention, and clear history. No account, telemetry, startup agent, cloud upload, automatic update check, or network dependency is required for core use. Logs MUST omit full personal paths by default. Diagnostic export requires a preview and explicit user action. Clearing history removes scan metadata; uninstall offers whether to retain settings and history.</p>
+<h2 id="3-proposed-architecture">3 Proposed architecture</h2>
+<p>Use Tauri 2 for the desktop shell, React and TypeScript for the interface, Rust for scanning and filesystem operations, and SQLite for local metadata. Use a pure layout function for treemaps, with a Canvas renderer and an accessible HTML list. This preserves a path toward macOS while isolating Windows behavior. The tradeoff is Rust and Win32 integration complexity; benchmark and prototype these before committing to the stack.</p>
+<p>Windows uses WebView2; development requires the relevant Tauri Windows prerequisites [S7]. Pin exact dependency versions and toolchains at project bootstrap rather than relying on floating latest versions.</p>
+<pre><code class="language-text">React interface
+  Map canvas   Accessible list   Details   History   Review
+                     |
+          Typed Tauri commands and bounded events
+                     |
+Rust application service
+  Scan coordinator   Query service   Comparison   Cleanup policy
+          |                 |                         |
+  Windows metadata      SQLite store          Windows Shell adapter
+      adapter                                  IFileOperation
+</code></pre>
+<p>The frontend MUST NOT receive broad filesystem write or shell execution permissions. Register explicit custom command permissions and restrict them to the bundled main window; do not assume Tauri's capability files automatically protect unrestricted custom handlers [S8]. Native methods perform their own scope validation. Disable remote application content and arbitrary navigation, use a restrictive content security policy, and escape all file names as text.</p>
+<p>A bounded worker pool enumerates directories and collects metadata. Start with two workers and tune using SSD and removable-drive benchmarks. Batch database writes. Store full scan data in SQLite and return aggregates or pages to the frontend, not millions of entries in one JSON payload. Cancellation tokens, queue limits, and event throttling prevent memory growth and UI saturation.</p>
+<h2 id="4-data-model-and-command-contract">4 Data model and command contract</h2>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Required fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scan</td>
+<td>id, schemaVersion, rootNative, rootDisplay, volumeId, configHash, accountingVersion, startedAt, finishedAt, state, completeness, warnings</td>
+</tr>
+<tr>
+<td>Entry</td>
+<td>id, scanId, parentId, relativePathNative, displayPath, kind, volumeId, fileId nullable, creationTime nullable, linkCount nullable, logicalBytes, allocatedBytes nullable, countedAllocatedBytes nullable, timestamps, accessReliability, attributes, category, coverage, actionEligibility</td>
+</tr>
+<tr>
+<td>App group</td>
+<td>id, scanId, displayName, recognizedRoots, attributedEntryIds, coverage, attributionVersion</td>
+</tr>
+<tr>
+<td>Policy rule</td>
+<td>id, kind pin or scanExclude, nativePath, scope, optional volumeId and fileId</td>
+</tr>
+<tr>
+<td>Cleanup plan</td>
+<td>id, scanId, createdAt, approvedScopeIds, requestedEntryIds, validationFingerprint, state</td>
+</tr>
+<tr>
+<td>Cleanup result</td>
+<td>operationId, entryId, attemptedAt, outcome, WindowsCode nullable, userMessage</td>
+</tr>
+</tbody>
+</table></div>
+<p>IDs are opaque. Exact byte counts and Windows identifiers MUST cross the JSON boundary as decimal strings, avoiding JavaScript number precision loss. Date values use UTC ISO 8601 or null. Paths used for actions remain in backend native Windows strings; displayed paths are informational. SQLite byte counters require checked arithmetic and reject overflow. Enforce foreign keys and transactional snapshot publication.</p>
+<p>Command names below describe the intended API, not an existing implementation:</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Input</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>list_volumes</td>
+<td>None</td>
+<td>Eligible volumes and capability flags</td>
+</tr>
+<tr>
+<td>choose_scan_root</td>
+<td>Native picker request</td>
+<td>Validated root token</td>
+</tr>
+<tr>
+<td>start_scan</td>
+<td>Root token and scan configuration</td>
+<td>Scan ID</td>
+</tr>
+<tr>
+<td>cancel_scan</td>
+<td>Scan ID</td>
+<td>Cancellation acknowledged</td>
+</tr>
+<tr>
+<td>query_entries</td>
+<td>Scan ID, parent/group, filters, sort, cursor</td>
+<td>Page, aggregates and coverage</td>
+</tr>
+<tr>
+<td>get_entry_details</td>
+<td>Scan ID and entry ID</td>
+<td>Metadata and eligibility</td>
+</tr>
+<tr>
+<td>save_partial_scan</td>
+<td>Scan ID</td>
+<td>Snapshot ID</td>
+</tr>
+<tr>
+<td>compare_scans</td>
+<td>Two snapshot IDs</td>
+<td>Compatibility or comparison ID</td>
+</tr>
+<tr>
+<td>set_policy_rule</td>
+<td>Validated item/root token and rule kind</td>
+<td>Saved rule</td>
+</tr>
+<tr>
+<td>prepare_cleanup</td>
+<td>Scan ID and entry IDs</td>
+<td>Review plan and blocked items</td>
+</tr>
+<tr>
+<td>execute_cleanup</td>
+<td>Plan ID and explicit confirmation token</td>
+<td>Operation ID</td>
+</tr>
+<tr>
+<td>cancel_cleanup</td>
+<td>Operation ID</td>
+<td>Request acknowledged</td>
+</tr>
+<tr>
+<td>reveal_entry</td>
+<td>Scan ID and entry ID</td>
+<td>Shell action result</td>
+</tr>
+<tr>
+<td>open_system_location</td>
+<td>Allowlisted destination enum</td>
+<td>Shell action result</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every event MUST include scan or operation ID and a monotonically increasing sequence within that operation. Event types include scan_progress, scan_finished, scan_cancelled, scan_failed, cleanup_progress, and cleanup_finished. Clients ignore events for replaced operations. Terminal events include aggregate counts and warnings. Queries return a structured error code, readable message, and whether retry is useful.</p>
+<h2 id="5-lifecycle-and-consistency">5 Lifecycle and consistency</h2>
+<p>Scans move through Queued, Scanning, Finalizing, and Complete. Cancellation leads to Cancelled with partial coverage; an unrecoverable root or persistence error can lead to Failed while retaining readable results. Per-entry errors may result in Complete with omissions. Finalizing and publication occur transactionally; a snapshot is never advertised as complete before commit.</p>
+<p>Cleanup plans move through Prepared, Revalidating, Running, and Finished or Cancelled. They expire after 10 minutes or whenever scope, protection, selection, or relevant metadata changes. A consumed plan cannot run twice. Incomplete operation records after restart appear as Requires reconciliation.</p>
+<p>A scan observes a live filesystem and is not an atomic volume snapshot. Record changes detected during metadata reads and permit rescan. Each saved result retains its scan interval. Cleanup results trigger refresh of affected parents and the drive-space query; historical snapshots remain immutable.</p>
+<h2 id="6-performance-and-accessibility-targets">6 Performance and accessibility targets</h2>
+<p>Use a documented baseline of Windows 11 x64, a four-core CPU, 16 GB RAM, and an SSD. Measure release builds with Defender enabled. Maintain a reproducible metadata dataset of 100,000 files and a larger 1,000,000-file fixture, recording depth, link count, and storage type. Do not advertise a full-drive scan time before measurement.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Proposed acceptance target</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Launch to usable root picker</td>
+<td>At most 3 seconds on baseline</td>
+</tr>
+<tr>
+<td>First progress update</td>
+<td>At most 1 second after accessible-root scan starts</td>
+</tr>
+<tr>
+<td>Warm filter or sort query on 100,000 entries</td>
+<td>p95 at most 250 ms, measured across 30 queries</td>
+</tr>
+<tr>
+<td>User input while scanning</td>
+<td>p95 visible response at most 100 ms</td>
+</tr>
+<tr>
+<td>Scan cancellation scheduling stops</td>
+<td>At most 2 seconds; blocked OS call may finish later</td>
+</tr>
+<tr>
+<td>Steady scan rate on 100,000-file SSD fixture</td>
+<td>Initial target at least 5,000 entries per second, subject to prototype validation</td>
+</tr>
+<tr>
+<td>Total application memory on 1,000,000-entry fixture</td>
+<td>Initial target at most 500 MB private working set</td>
+</tr>
+<tr>
+<td>Treemap interaction with 1,500 rectangles</td>
+<td>Target 60 fps on baseline, with responsive fallback</td>
+</tr>
+</tbody>
+</table></div>
+<p>If scan-rate or memory targets fail, profile the bottleneck before adjusting the stack or enabling any privileged acceleration. Record measured results and any justified target revision. Accuracy, cleanup safeguards, and accessible operation are mandatory regardless of performance.</p>
+<p>MUST support keyboard-only completion of primary workflows, Narrator-readable controls and list content, visible focus, system high contrast, reduced motion, and 100 to 200 percent Windows scaling. The Canvas map cannot be the only route to an item. Verify text and component contrast using the rendered UI, not palette values alone.</p>
+<h2 id="7-acceptance-tests">7 Acceptance tests</h2>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Requirements</th>
+<th>Pass condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AT01 Ordinary scan</td>
+<td>FR01 FR02</td>
+<td>Known fixture counts and byte aggregates agree with independent Windows metadata measurements</td>
+</tr>
+<tr>
+<td>AT02 Hard links</td>
+<td>FR02 FR04</td>
+<td>Physical root total counts one allocation; aliases are identified; logical mode is clearly different</td>
+</tr>
+<tr>
+<td>AT03 Sparse and compressed files</td>
+<td>FR02</td>
+<td>Allocated and logical sizes remain distinct; unsupported measurements remain null</td>
+</tr>
+<tr>
+<td>AT04 Link cycle and mounted volume</td>
+<td>FR03</td>
+<td>Scan terminates, does not follow targets, and records skipped links</td>
+</tr>
+<tr>
+<td>AT05 Cloud placeholder</td>
+<td>FR03</td>
+<td>Metadata scan does not cause intentional hydration; unknown allocation is visible</td>
+</tr>
+<tr>
+<td>AT06 Denied folder and cancellation</td>
+<td>FR01 FR08</td>
+<td>Partial coverage persists and missing paths are not reported as removed in comparisons</td>
+</tr>
+<tr>
+<td>AT07 Filter parity</td>
+<td>FR04 FR05</td>
+<td>Map, list, selection and totals agree for intersecting filters and both size metrics</td>
+</tr>
+<tr>
+<td>AT08 Date buckets</td>
+<td>FR06</td>
+<td>Exact boundary, future, absent, unverified and aggregate-tie cases match the defined rules</td>
+</tr>
+<tr>
+<td>AT09 App coverage</td>
+<td>FR07 FR10</td>
+<td>Ambiguous/shared roots stay unattributed; app groups cannot be recycled</td>
+</tr>
+<tr>
+<td>AT10 Comparison</td>
+<td>FR08</td>
+<td>Compatible fixtures report correct changes; incompatible scans are blocked; uncertain renames are labeled</td>
+</tr>
+<tr>
+<td>AT11 Protected and pinned targets</td>
+<td>FR09 FR10</td>
+<td>Backend rejects protected paths, aliases, pins and paths outside approved personal scope</td>
+</tr>
+<tr>
+<td>AT12 Replaced file before cleanup</td>
+<td>FR10</td>
+<td>Revalidation skips the changed identity and requests a new review</td>
+</tr>
+<tr>
+<td>AT13 Recycle failure modes</td>
+<td>FR10</td>
+<td>Large-file, bin-capacity and unsupported-volume cases never fall back to permanent deletion</td>
+</tr>
+<tr>
+<td>AT14 Partial cleanup and cancellation</td>
+<td>FR10</td>
+<td>Each item has its own result; no duplicate execution; succeeded items are recoverable in Windows Bin</td>
+</tr>
+<tr>
+<td>AT15 Available space</td>
+<td>FR02 FR10</td>
+<td>Bytes recycled and measured available-space change are separate values</td>
+</tr>
+<tr>
+<td>AT16 Persistence and restart</td>
+<td>FR08 FR11</td>
+<td>Snapshots survive restart; interrupted actions reconcile; corrupt database has a recoverable path</td>
+</tr>
+<tr>
+<td>AT17 Long and unusual paths</td>
+<td>FR03</td>
+<td>Unicode, long paths, case-sensitive siblings and encoded display text do not redirect actions</td>
+</tr>
+<tr>
+<td>AT18 Offline and diagnostics</td>
+<td>FR11</td>
+<td>Core workflows succeed without network; default logs omit personal paths</td>
+</tr>
+<tr>
+<td>AT19 Accessibility</td>
+<td>FR04</td>
+<td>All primary tasks work with keyboard and Narrator at 200 percent scaling</td>
+</tr>
+</tbody>
+</table></div>
+<p>Unit tests should cover aggregation, filters, date bucketing, identity matching, plan expiry, and policy decisions. Windows integration tests must exercise actual metadata and Shell behavior in disposable fixtures. End-to-end tests should cover scan, navigate, compare, review, and results. Never test cleanup against a user's real files. Screenshots verify layout states but do not replace filesystem tests.</p>
+<h2 id="8-delivery-stages-and-release-gates">8 Delivery stages and release gates</h2>
+<p><strong>Stage 0 Windows feasibility prototype.</strong> Validate Rust metadata reads, hard-link accounting, cloud placeholders, WebView2 startup, accessible list behavior, and recycle-only Shell failures. Produce measurements and resolve stack risks before full UI implementation.</p>
+<p><strong>Stage 1 Read-only explorer.</strong> Implement root selection, enumeration, allocated/logical accounting, map/list, filters, date legend, and item details. Gate on AT01 through AT08 and path handling. No cleanup action is exposed yet.</p>
+<p><strong>Stage 2 History and grouping.</strong> Add persistence, comparisons, partial app grouping, pins and exclusions. Gate on AT09, AT10, AT16, and snapshot compatibility tests.</p>
+<p><strong>Stage 3 Reviewed personal file cleanup.</strong> Implement the scoped backend, plan validation, Shell callbacks, reconciliation, and result screen. Gate on every cleanup acceptance test. If recycle-only failure behavior is unproven, ship a read-only beta and keep cleanup disabled.</p>
+<p><strong>Stage 4 Windows beta package.</strong> Build a per-user installer, handle missing WebView2 through the documented installation flow, test install/uninstall on a clean machine, and include license notices. Verify performance, accessibility, offline behavior, and the five-user design review. Code signing and distribution channel selection are separate launch decisions; an unsigned build is labeled a development/beta artifact.</p>
+<p>No fixed dates are assigned before the feasibility prototype establishes implementation effort. A public paid release requires completed mandatory tests, transparent support scope, a distribution decision, and a defined commercial model.</p>
+<h2 id="9-deferred-decisions">9 Deferred decisions</h2>
+<p>Validate installed-app attribution through representative Windows apps before expanding into cache recommendations. Benchmark generic enumeration before considering MFT-based acceleration. Determine billing, trials, signing budget, Windows 10/ARM64 support, and macOS scheduling after a working Windows beta. The downloads companion may later share file provenance and storage warnings through an explicit local interface; it must not complicate the first scan engine.</p>
+<h2 id="10-source-references">10 Source references</h2>
+<p>These references support Windows and Tauri implementation constraints. Product scope, thresholds, stack selection, and performance targets are proposed decisions rather than vendor guarantees. Sources were consulted on 9 October 2026.</p>
+<ul>
+<li><strong>S1 Access timestamps:</strong> <a href="https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-behavior">Microsoft fsutil behavior</a> documents configurable access-time updates and deferred on-disk writes. These timestamps do not provide access counts.</li>
+<li><strong>S2 Recycling:</strong> <a href="https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileoperation-setoperationflags">Microsoft IFileOperation SetOperationFlags</a> documents Shell operation flags, including recycle-only behavior. The chosen adapter still requires failure-mode tests.</li>
+<li><strong>S3 Allocation:</strong> <a href="https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getcompressedfilesizew">Microsoft GetCompressedFileSizeW</a> describes storage measurement for compressed and sparse files. Validate actual adapter behavior against each supported filesystem.</li>
+<li><strong>S4 Shared file identities:</strong> <a href="https://learn.microsoft.com/en-us/windows/win32/fileio/hard-links-and-junctions">Microsoft Hard Links and Junctions</a> explains shared files represented by multiple names.</li>
+<li><strong>S5 Placeholder attributes:</strong> <a href="https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants">Microsoft File Attribute Constants</a> documents reparse, offline and recall attributes used to identify special cases.</li>
+<li><strong>S6 Drive accounting:</strong> <a href="https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdiskfreespaceexw">Microsoft GetDiskFreeSpaceExW</a> distinguishes available bytes for the caller from volume free bytes.</li>
+<li><strong>S7 Desktop prerequisites:</strong> <a href="https://v2.tauri.app/start/prerequisites/">Tauri prerequisites</a> describes Windows development dependencies and WebView2.</li>
+<li><strong>S8 Frontend permissions:</strong> <a href="https://v2.tauri.app/security/capabilities/">Tauri capabilities</a> describes WebView permissions and explicitly notes the default exposure of registered custom commands.</li>
+</ul></article></main></div></body></html>

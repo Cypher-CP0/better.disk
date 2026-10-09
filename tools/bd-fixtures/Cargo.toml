@@ -1,0 +1,28 @@
+[package]
+name = "bd-fixtures"
+description = "Creates disposable, marker-guarded fixture trees (scan edge cases, recycle sandbox) and checks scans against their manifests."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "bd-fixtures"
+path = "src/main.rs"
+
+[dependencies]
+bd-core = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+bd-win = { workspace = true }
+windows = { workspace = true }
+
+[lints]
+workspace = true

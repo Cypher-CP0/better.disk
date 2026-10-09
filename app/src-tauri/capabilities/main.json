@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "The bundled main window may call the shell spike's own read-only commands and nothing else: no filesystem, shell, window or event APIs.",
+  "local": true,
+  "windows": ["main"],
+  "permissions": [
+    "allow-app-info",
+    "allow-report-first-paint",
+    "allow-level-items",
+    "allow-level-page",
+    "allow-level-index-of",
+    "allow-report-results"
+  ]
+}

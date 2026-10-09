@@ -1,0 +1,21 @@
+[package]
+name = "bd-spike-query"
+description = "Stage 0 query spike: builds a synthetic million-file index through the real scan pipeline and measures tree build, memory, and filtered aggregation latency."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+bd-core = { workspace = true }
+bd-fixtures = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+bd-win = { workspace = true }
+
+[lints]
+workspace = true
