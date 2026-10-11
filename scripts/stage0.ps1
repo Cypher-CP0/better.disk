@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
   [string]$Work = (Join-Path $env:TEMP "bd-stage0"),
-  [string]$Out = (Join-Path (Split-Path -Parent $PSScriptRoot) "stage0-out"),
+  [string]$Out,
   [int]$BulkFiles = 100000,
   [string]$BulkBytes = "2GB",
   [switch]$SkipBuild,
@@ -35,7 +35,16 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repo = Split-Path -Parent $PSScriptRoot
+# $PSScriptRoot can be empty while parameter defaults are evaluated (seen with
+# Windows PowerShell 5.1 and -File), so paths that depend on it are resolved
+# here instead.
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir -and $MyInvocation.MyCommand.Path) {
+  $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+if (-not $scriptDir) { $scriptDir = Join-Path (Get-Location).Path "scripts" }
+$repo = Split-Path -Parent $scriptDir
+if (-not $Out) { $Out = Join-Path $repo "stage0-out" }
 $bin = Join-Path $repo "target\release"
 $results = [ordered]@{}
 
@@ -77,7 +86,9 @@ try {
     & "$bin\bd-spike-scan.exe" $fixture --workers 1,2,4,8 --repeat 3 --no-manifest --quiet --json (Join-Path $Out "scan-fixture-workers.report.json")
   }
   Invoke-Step "scan: cancellation latency" {
-    & "$bin\bd-spike-scan.exe" $fixture --cancel-after-ms 300 --repeat 5 --no-manifest --quiet --json (Join-Path $Out "scan-fixture-cancel.report.json")
+    # The fixture scan finishes in well under 100 ms on an SSD, so cancel
+    # early enough to land mid-scan; a cancel after completion measures nothing.
+    & "$bin\bd-spike-scan.exe" $fixture --cancel-after-ms 20 --repeat 5 --no-manifest --quiet --json (Join-Path $Out "scan-fixture-cancel.report.json")
   }
   Invoke-Step "query: 100,000 entries" {
     & "$bin\bd-spike-query.exe" --files 100000 --json (Join-Path $Out "query-100k.report.json")

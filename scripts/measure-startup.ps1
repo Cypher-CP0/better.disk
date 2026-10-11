@@ -9,7 +9,7 @@
   reboot is the cold start; later runs are warm.
 
   Build first:
-    cd app; npm ci; npm run tauri build -- --no-bundle
+    cd app; npm ci; npm run build:exe
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\measure-startup.ps1 -Runs 10
@@ -17,13 +17,25 @@
 [CmdletBinding()]
 param(
   [int]$Runs = 10,
-  [string]$Exe = (Join-Path (Split-Path -Parent $PSScriptRoot) "target\release\bd-app.exe"),
-  [string]$Out = (Join-Path (Split-Path -Parent $PSScriptRoot) "stage0-out")
+  [string]$Exe,
+  [string]$Out
 )
 
 $ErrorActionPreference = "Stop"
+# $PSScriptRoot can be empty while parameter defaults are evaluated (seen with
+# Windows PowerShell 5.1 and -File), so paths that depend on it are resolved
+# here instead.
+$scriptDir = $PSScriptRoot
+if (-not $scriptDir -and $MyInvocation.MyCommand.Path) {
+  $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
+if (-not $scriptDir) { $scriptDir = Join-Path (Get-Location).Path "scripts" }
+$repo = Split-Path -Parent $scriptDir
+if (-not $Exe) { $Exe = Join-Path $repo "target\release\bd-app.exe" }
+if (-not $Out) { $Out = Join-Path $repo "stage0-out" }
+
 if (-not (Test-Path -LiteralPath $Exe)) {
-  throw "No app build at $Exe. Run: cd app; npm ci; npm run tauri build -- --no-bundle"
+  throw "No app build at $Exe. Run: cd app; npm ci; npm run build:exe"
 }
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 

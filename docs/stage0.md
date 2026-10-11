@@ -138,7 +138,7 @@ understood (specification FR10).
 ## 5. Shell (WebView2 startup, canvas, accessible list)
 
 ```powershell
-cd app; npm ci; npm run tauri build -- --no-bundle; cd ..
+cd app; npm ci; npm run build:exe; cd ..
 powershell -ExecutionPolicy Bypass -File scripts\measure-startup.ps1 -Runs 10
 ```
 
