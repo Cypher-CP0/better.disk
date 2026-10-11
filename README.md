@@ -68,7 +68,7 @@ powershell -ExecutionPolicy Bypass -File scripts\stage0.ps1
 cd app
 npm ci
 npm run tauri dev          # development
-npm run tauri build -- --no-bundle   # release exe for startup timing
+npm run build:exe          # release exe for startup timing
 ```
 
 Individual tools:
