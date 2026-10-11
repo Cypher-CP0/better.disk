@@ -27,7 +27,7 @@ quoted as product performance.
 | Entries/s, 100k fixture, 2 workers | ≥ 5,000 | 1,148,416 (second run). First run was 219,275, which is unexplained; rerun to check variance | ~0.9 M/s on a warm 20k fixture (page cache) |
 | Entries/s, worker sweep 1/2/4/8 | tune | ~0.80 M / ~1.5 M / ~2.2 M / ~2.9 M | 1: 0.41 M/s, 2: 0.92 M/s, 4: 1.17 M/s |
 | First progress | ≤ 1 s | 0.4 ms | < 1 ms |
-| Cancellation latency | ≤ 2 s | Not measured: the script cancelled after 300 ms, but the fixture scan finishes in ~70–90 ms, so no run was ever cancelled (script now cancels at 20 ms) | (not run) |
+| Cancellation latency | ≤ 2 s | 2.3 ms, measured on the system drive (cancel at 2 s, mid-scan; 107,968 entries indexed, 28,285 folders left unscanned). The scripted fixture run never cancelled: it fired at 300 ms and the scan ends in ~70–90 ms (script now cancels at 20 ms) | (not run) |
 | Tree build, 100k entries | | 29.6 ms | ~50 ms (synthetic) |
 | Memory after build | ≤ 500 MB at 1M (whole app) | 305 MB peak at 1M entries (index only; see §2) | 16 MB RSS at 20k |
 | `FileFullDirectoryInfo` fallback works (exFAT) | | Deferred (no working USB stick). On NTFS the `win-full` reader works: 55 pass, 1 expected skip | n/a |
@@ -43,7 +43,7 @@ quoted as product performance.
 | H3 | `GetCompressedFileSizeW` equals logical size for ordinary files | Yes | Equal to logical size for 100,034 of 100,036 files |
 | H4 | `AllocationSize` is cluster-rounded size on disk | Not verified | Allocated values not yet checked against the 4,096-byte cluster |
 | H5 | Native reader faster than `std::fs` | **No** | Second run: native 1.15 M/s vs `std` 1.20 M/s (`win-full` was fastest at 1.33 M/s). Retest before deciding |
-| H6 | First progress ≤ 1 s and cancellation ≤ 2 s | Partly | First progress 0.4 ms (met). Cancellation not measured: every run finished before the 300 ms cancel point |
+| H6 | First progress ≤ 1 s and cancellation ≤ 2 s | Yes | First progress 0.4 ms. Cancellation 2.3 ms on the system drive |
 
 ## 2. Query and memory (D1)
 
@@ -137,9 +137,6 @@ the size limit. Cleanup ships disabled
   administrator `diskpart /s <dir>\vhd\create-exfat.diskpart`.
 * Does `PreDeleteItem` ever report the size limit correctly? Case D (bin
   disabled) should show whether the flag is reliable anywhere.
-* Cancellation latency was not measured, because the scan finished before
-  the cancel fired. Measure it on the system drive, where a scan takes minutes:
-  `bd-spike-scan.exe C:\ --cancel-after-ms 2000 --quiet`.
 * Why is the native reader not faster than `std` (H5)? Retest before
   choosing a reader for Stage 1.
 * The system-drive scan found one file that enumeration reported as 0 bytes
